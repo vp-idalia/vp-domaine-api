@@ -1,0 +1,10 @@
+version: '3'
+
+services:
+  elasticsearch_project1:
+    image: elasticsearch:7.17.0
+    environment:
+      - discovery.type=single-node
+      - "ES_JAVA_OPT=-Xms2046m -Xmx2048m"
+    ports:
+      - 15102:9200
