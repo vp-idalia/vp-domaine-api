@@ -1,0 +1,193 @@
+pipeline {
+  agent {
+    dockerfile { dir 'jenkins/agent' }
+  }
+  triggers { pollSCM('H/5 * * * 1-5') }
+  options {
+    buildDiscarder(logRotator(numToKeepStr: '10'))
+    lock(resource: 'new-kalif-backend-env')
+    disableConcurrentBuilds()
+  }
+  environment {
+    DOCKERHUB_CREDENTIALS = credentials('dockerhub')
+    DOCKERHUB_REGISTRY = 'vecteurplus'
+  }
+  stages {
+    stage('prebuild') {
+      when {
+        anyOf {
+          expression{env.BRANCH_NAME.startsWith("ft/")}
+          expression{env.BRANCH_NAME.equals("dev")}
+          expression{env.BRANCH_NAME.startsWith("tech/")}
+          expression{env.BRANCH_NAME.startsWith("rc/")}
+          expression{env.BRANCH_NAME.startsWith("fix/")}
+          expression{env.BRANCH_NAME.startsWith("TP-")}
+          expression{env.BRANCH_NAME.startsWith("VP")}
+          expression{env.BRANCH_NAME.equals("master")}
+          expression{env.BRANCH_NAME.startsWith("PR")}
+          expression{env.BRANCH_NAME.equals("main")}
+        }
+      }
+      steps {
+        sh '''
+          yarn install --pure-lockfile
+          '''
+      }
+    }
+    stage('test') {
+      when {
+        anyOf {
+          expression{env.BRANCH_NAME.startsWith("ft/")}
+          expression{env.BRANCH_NAME.equals("dev")}
+          expression{env.BRANCH_NAME.startsWith("tech/")}
+          expression{env.BRANCH_NAME.startsWith("rc/")}
+          expression{env.BRANCH_NAME.startsWith("fix/")}
+          expression{env.BRANCH_NAME.startsWith("TP-")}
+          expression{env.BRANCH_NAME.startsWith("VP")}
+          expression{env.BRANCH_NAME.equals("master")}
+          expression{env.BRANCH_NAME.startsWith("PR")}
+          expression{env.BRANCH_NAME.equals("main")}
+        }
+      }
+      steps {
+        retry(2) {
+          timeout(time: 10, unit: 'MINUTES') {
+            sh '''
+                echo $DOCKERHUB_CREDENTIALS_PSW | docker login -u $DOCKERHUB_CREDENTIALS_USR --password-stdin
+                cd docker/ci-jenkins
+                docker-compose rm -f
+                docker-compose up -d
+                '''
+            sleep 15
+            sh 'yarn test:ci'
+          }
+        }
+      }
+    }
+    stage('build-branch') {
+      when {
+        anyOf {
+          expression{env.BRANCH_NAME.startsWith("ft/")}
+          expression{env.BRANCH_NAME.equals("dev")}
+          expression{env.BRANCH_NAME.startsWith("tech/")}
+          expression{env.BRANCH_NAME.startsWith("rc/")}
+          expression{env.BRANCH_NAME.startsWith("fix/")}
+          expression{env.BRANCH_NAME.startsWith("TP-")}
+          expression{env.BRANCH_NAME.startsWith("VP")}
+          expression{env.BRANCH_NAME.equals("master")}
+          expression{env.BRANCH_NAME.startsWith("PR")}
+          expression{env.BRANCH_NAME.equals("main")}
+        }
+      }
+      steps {
+        retry(2) {
+          sh '''
+          BUILD_VERSION=$(echo $BRANCH_NAME | tr / _)-$(node -e "console.log(require('./package.json').version);")
+          BUILD_TAG=$DOCKERHUB_REGISTRY/newkalif-backend:$BUILD_VERSION
+          echo $DOCKERHUB_CREDENTIALS_PSW | docker login -u $DOCKERHUB_CREDENTIALS_USR --password-stdin
+          docker build -t $BUILD_TAG .
+          docker push $BUILD_TAG
+          '''
+        }
+      }
+    }
+    stage('build-master') {
+      when {
+        expression {
+          return env.BRANCH_NAME.equals("master")
+        }
+      }
+      steps {
+        sh '''
+        BUILD_VERSION=$(node -e "console.log(require('./package.json').version);")
+        BUILD_TAG=$DOCKERHUB_REGISTRY/newkalif-backend:$BUILD_VERSION
+        echo $DOCKERHUB_CREDENTIALS_PSW | docker login -u $DOCKERHUB_CREDENTIALS_USR --password-stdin
+        docker build -t $BUILD_TAG .
+        docker push $BUILD_TAG
+        '''
+      }
+    }
+    stage('build-release') {
+      when {
+        expression {
+          return env.BRANCH_NAME.startsWith("v")
+        }
+      }
+      steps {
+        retry(2) {
+          sh '''
+          BUILD_VERSION=$(node -e "console.log(require('./package.json').version);")
+          BUILD_TAG=$DOCKERHUB_REGISTRY/newkalif-backend:v$BUILD_VERSION
+          echo $DOCKERHUB_CREDENTIALS_PSW | docker login -u $DOCKERHUB_CREDENTIALS_USR --password-stdin
+          docker build -t $BUILD_TAG .
+          docker push $BUILD_TAG
+          '''
+        }
+      }
+    }
+  }
+  post {
+    always {
+      sh '''
+      docker logout
+      cd docker/ci-jenkins
+      docker-compose down
+      '''
+
+      /*
+      TODO : voir pourquoi cette etape echoue dans jenkins
+      */
+      /*
+      publishHTML(target: [
+          allowMissing         : false,
+          alwaysLinkToLastBuild: false,
+          keepAll              : true,
+          reportDir            : 'reports/mocha',
+          reportFiles          : 'mochawesome.html',
+          reportName           : 'Rapport de tests'
+      ])
+
+      publishHTML(target: [
+          allowMissing         : false,
+          alwaysLinkToLastBuild: false,
+          keepAll              : true,
+          reportDir            : 'reports/coverage',
+          reportFiles          : 'index.html',
+          reportName           : 'Couverture de tests'
+      ])
+      */
+
+      deleteDir()
+
+    }
+    success {
+      mail to: "dev@vecteurplus.com", subject: "SUCCESS: ${JOB_NAME}${BUILD_DISPLAY_NAME}", body: generateEmailBody("passed")
+    }
+    failure {
+      mail to: "dev@vecteurplus.com", subject: "FAILURE: ${JOB_NAME}${BUILD_DISPLAY_NAME}", body: generateEmailBody("failed")
+    }
+  }
+}
+
+// email functions
+@NonCPS
+generateEmailBody(status) {
+  changeSets = getChangeSets()
+  return "Jenkins build ${status}. Took ${currentBuild.durationString}.\nSee more here : ${BUILD_URL}\n\nDescription :\n${currentBuild.description}\n\nChange sets :\n${changeSets}";
+}
+
+@NonCPS
+getChangeSets() {
+  changeString = "";
+  def changeLogSets = currentBuild.changeSets
+  changeLogSets.each { changeLog ->
+    changeLog.items.each { entry ->
+      changeString += " - ${entry.msg} [${entry.author}]\n"
+    }
+  }
+
+  if (!changeString) {
+    changeString = " - No new changes"
+  }
+  return changeString
+}
