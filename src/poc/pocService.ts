@@ -189,9 +189,9 @@ export class pocService {
     });
     let dataSheet = workbook.Sheets.data;
     let bilanSheet = workbook.Sheets.Bilan;
-    const range = XLSX.utils.decode_range(dataSheet["!ref"] ?? "");
-    console.log(range);
-    XLSX.utils.encode_cell(range);
+    // const range = XLSX.utils.decode_range(dataSheet["!ref"] ?? "");
+    // console.log(range);
+    // XLSX.utils.encode_cell(range);
     var arr = new Array(b.length);
     for (var i = 0; i < b.length; i++) {
       arr[i] = new Array(7);
