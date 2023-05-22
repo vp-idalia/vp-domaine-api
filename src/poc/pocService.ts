@@ -180,6 +180,7 @@ export class pocService {
     return newObj;
   }
 
+  
   generateXlsxFromArrayBilanTestDomainisationDto(b: BilanTestDomainisationDto[]) {
     var XLSX = require("xlsx");
     const workbook = readFile("template.xlsx", {
