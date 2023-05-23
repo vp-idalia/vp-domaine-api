@@ -13,9 +13,9 @@ export class PocController {
     @Inject(pocService)
     private readonly service: pocService;
 
-    @Get('createBilanTestDomainisation')
-    createBilanTestDomainisation() {
-        return this.service.createBilanTestDomainisation();
+    @Get('createBilanTestDomainisation/:nom')
+    createBilanTestDomainisation(@Param() params: { nom: string }) {
+        return this.service.createBilanTestDomainisation(params.nom);
     }
 
     @Get('initEsIndex/:indexName')
@@ -25,7 +25,7 @@ export class PocController {
 
     @Get('search/:keywords')
     search(@Param() params: { keywords: string }): any {
-            return this.service.search(params.keywords);
+        return this.service.search(params.keywords);
     }
 
     @Get('searchdomaine/:keywords')

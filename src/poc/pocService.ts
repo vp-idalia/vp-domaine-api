@@ -6,6 +6,7 @@ import { BilanTestDomainisationDto } from './bilanTestDomainisation.dto';
 const {convertArrayToCSV} = require('convert-array-to-csv');
 import * as fs from "fs";
 import { readFile } from "xlsx";
+import dateFormat from "dateformat";
 
 const elasticsearchService = new ElasticsearchService('http://127.0.01:15102');
 
@@ -94,7 +95,7 @@ export class pocService {
     });
   }
 
-  createBilanTestDomainisation() {
+  createBilanTestDomainisation(nom: string) {
     const maRequette = "SELECT distinct top 1000 im.id, im.date_modification, imi.objet_marche, "
     +"UPPER(substring( pms.chemin_normalise, 0, IIF( CHARINDEX('/', pms.chemin_normalise, 2) = 0, "
     +"LEN(pms.chemin_normalise) + 1, CHARINDEX('/', pms.chemin_normalise, 2) ) )) as pms FROM [marche].[INFORMATION_MARCHE] "
@@ -117,7 +118,7 @@ export class pocService {
 
       tabPromisesBilanTestDomainisation.then(b => {
         setTimeout(() => {
-          this.generateXlsxFromArrayBilanTestDomainisationDto(b);
+          this.generateXlsxFromArrayBilanTestDomainisationDto(b, nom);
         }, 1000);
       })
 
@@ -166,21 +167,24 @@ export class pocService {
     // for (let t of objTokens.data.tokens) {
     //   tabTokens.push(t.token);
     // }
+    console.log(pms.flat(1).slice(0,3));
     const newObj: BilanTestDomainisationDto = {
       imId: inputObj.id,
       objet_marche: inputObj.objet_marche,
-      pmsProduits: inputObj.pms,
-      domaines: pms.flat(1).slice(0,1),
-      egal: JSON.stringify(pms.flat(1).slice(0,1))===JSON.stringify(inputObj.pms)?true:false,
+      pmsProduits: affichage(inputObj.pms.sort()),
+      domaines: affichage(pms.flat(1).slice(0,2).sort()),
+      //egal: JSON.stringify(pms.flat(1).slice(0,2))===JSON.stringify(inputObj.pms)?true:false,
+      egal: egal(pms.flat(1).slice(0,2), inputObj.pms),
+      include: include(pms.flat(1).slice(0,2), inputObj.pms),
       //tokens: JSON.stringify(tabTokens),
       tokens: '',
-      new: inputObj.date_modification<new Date('2021-01-01T01:32:00')?true:false,
+      new: inputObj.date_modification<new Date('2021-01-01T01:32:00')?true:false
     };
     //console.log(newObj);
     return newObj;
   }
-
-  generateXlsxFromArrayBilanTestDomainisationDto(b: BilanTestDomainisationDto[]) {
+  
+  generateXlsxFromArrayBilanTestDomainisationDto(b: BilanTestDomainisationDto[], nom: string) {
     var XLSX = require("xlsx");
     const workbook = readFile("template.xlsx", {
       cellStyles: true,
@@ -194,18 +198,21 @@ export class pocService {
     XLSX.utils.encode_cell(range);
     var arr = new Array(b.length);
     for (var i = 0; i < b.length; i++) {
-      arr[i] = new Array(7);
+      arr[i] = new Array(8);
       arr[i] = Object.values(b[i]);
     }
     XLSX.utils.sheet_add_aoa(dataSheet, arr, { origin: "A2" });
     var date = new Date();
+    XLSX.utils.sheet_add_aoa(bilanSheet, [[nom]] , { origin: "B2" });
     XLSX.utils.sheet_add_aoa(bilanSheet, [[calculPourcentage(b.map( e => {return e.egal;}),b.length)]], { origin: "B4" });
+    XLSX.utils.sheet_add_aoa(bilanSheet, [[calculPourcentage(b.map( e => {return e.include;}),b.length)]], { origin: "B5" });
     XLSX.utils.sheet_add_aoa(bilanSheet, [[date]], { origin: "B3" });
-    XLSX.writeFileXLSX(workbook, "out.xlsx", {
+    const nameSheet: string = `${format(date)}.xlsx`;
+    console.log(nameSheet);
+    XLSX.writeFileXLSX(workbook, nameSheet, {
       cellStyles: true,
       cellHTML: false,
       cellText: false,
-      type: "buffer"
     });
   }
 
@@ -236,4 +243,58 @@ export function calculPourcentage(tab: boolean[], total: number): number {
 
 export function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+export function affichage(tabString: String[]) {
+  let setString = new Set(tabString);
+  let affich:string = ''
+  setString.forEach(e => {
+    affich=affich+e+','
+   });
+   return affich.slice(0, -1);
+}
+
+export function egal(a: String[], b: String[]) {
+  const [set1, set2] = [new Set(a), new Set(b)];
+  const common = [...set1].filter(x => set2.has(x));
+  return (set1.size===set2.size) && (set1.size===common.length);
+}
+
+export function include(a: String[], b: String[]) {
+  const [set1, set2] = [new Set(a), new Set(b)];
+  const common = [...set1].filter(x => set2.has(x));
+  return (set2.size===common.length);
+}
+
+export function format(inputDate) {
+  let date, month, year, hour, minute, second;
+
+  date = inputDate.getDate();
+  month = inputDate.getMonth() + 1;
+  year = inputDate.getFullYear();
+  hour = inputDate.getHours();
+  minute = inputDate.getMinutes();
+  second = inputDate.getSeconds();
+
+    date = date
+        .toString()
+        .padStart(2, '0');
+
+    month = month
+        .toString()
+        .padStart(2, '0');
+
+    hour = hour
+        .toString()
+        .padStart(2, '0');
+
+    minute = minute
+        .toString()
+        .padStart(2, '0');
+
+    second = second
+        .toString()
+        .padStart(2, '0');
+
+  return `${date}-${month}-${year}-${hour}-${minute}-${second}`;
 }
