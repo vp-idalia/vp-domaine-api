@@ -160,7 +160,7 @@ export class pocService {
       return acc;
   }
 
-  async createBilanTestDomainisationDto(inputObj: ProjetDomainise): Promise<BilanTestDomainisationDto> {
+  async createBilanTestDomainisationDto(inputObj: ProjetDomainise) {
     var pms = await searchPms(inputObj.objet_marche, 6);
     //var objTokens = await getTokens("projet_domainises", inputObj.objet_marche);
     // var tabTokens= [];
@@ -183,8 +183,9 @@ export class pocService {
     //console.log(newObj);
     return newObj;
   }
-  
+
   generateXlsxFromArrayBilanTestDomainisationDto(b: BilanTestDomainisationDto[], nom: string) {
+    const http = require('http');
     var XLSX = require("xlsx");
     const workbook = readFile("template.xlsx", {
       cellStyles: true,
@@ -209,11 +210,26 @@ export class pocService {
     XLSX.utils.sheet_add_aoa(bilanSheet, [[date]], { origin: "B3" });
     const nameSheet: string = `${format(date)}.xlsx`;
     console.log(nameSheet);
-    XLSX.writeFileXLSX(workbook, nameSheet, {
-      cellStyles: true,
-      cellHTML: false,
-      cellText: false,
+    // const buff = XLSX.writeFileXLSX(workbook, nameSheet, {
+    //   cellStyles: true,
+    //   cellHTML: false,
+    //   cellText: false,
+    //   type:"buffer",
+    //   bookType:"xlsx"
+    // });
+    
+    const server = http.createServer((req, res) => {
+      const buf = XLSX.write(workbook, { type:"buffer", bookType:"xlsx" });
+      res.statusCode = 200;
+      res.setHeader('Content-Disposition', `attachment; filename="${nameSheet}"`);
+      res.setHeader('Content-Type', 'application/vnd.ms-excel');
+      res.end(buf);
     });
+
+    server.listen(7262, '127.0.0.1', () => {
+      console.log(`Server running at http://${'127.0.0.1'}:${7262}/`);
+    });
+
   }
 
   search(keywords: string) {

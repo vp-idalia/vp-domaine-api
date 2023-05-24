@@ -41,7 +41,7 @@
     "sequelize-typescript": "^2.1.5",
     "typeorm": "^0.3.14",
     "webpack": "^5.81.0",
-    "xlsx": "^0.18.5"
+    "xlsx": "https://cdn.sheetjs.com/xlsx-0.19.3/xlsx-0.19.3.tgz"
   },
   "devDependencies": {
     "@nestjs/cli": "^9.0.0",

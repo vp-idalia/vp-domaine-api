@@ -1,4 +1,4 @@
-import { Controller, DefaultValuePipe, Get, Inject, Param, ParseArrayPipe, ParseBoolPipe, ParseIntPipe, ParseUUIDPipe, Query } from '@nestjs/common';
+import { Controller, DefaultValuePipe, Get, Inject, Param, ParseArrayPipe, ParseBoolPipe, ParseIntPipe, ParseUUIDPipe, Query, Redirect, Res } from '@nestjs/common';
 import { AxiosResponse } from 'axios';
 import { pocService, searchPms } from '../pocService';
 
@@ -14,10 +14,11 @@ export class PocController {
     private readonly service: pocService;
 
     @Get('createBilanTestDomainisation/:nom')
+    @Redirect(`http://${'127.0.0.1'}:${7262}/`)
     createBilanTestDomainisation(@Param() params: { nom: string }) {
         return this.service.createBilanTestDomainisation(params.nom);
     }
-
+    
     @Get('initEsIndex/:indexName')
     initEsIndex(@Param() params: { indexName: string }): any {
         return this.service.initEsIndex(params.indexName);
