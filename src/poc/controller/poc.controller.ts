@@ -1,5 +1,4 @@
 import { Controller, DefaultValuePipe, Get, Inject, Param, ParseArrayPipe, ParseBoolPipe, ParseIntPipe, ParseUUIDPipe, Query, Redirect, Res } from '@nestjs/common';
-import { AxiosResponse } from 'axios';
 import { pocService, searchPms } from '../pocService';
 
 type ProjetDomainise = {
@@ -18,7 +17,7 @@ export class PocController {
     createBilanTestDomainisation(@Param() params: { nom: string }) {
         return this.service.createBilanTestDomainisation(params.nom);
     }
-    
+
     @Get('initEsIndex/:indexName')
     initEsIndex(@Param() params: { indexName: string }): any {
         return this.service.initEsIndex(params.indexName);
